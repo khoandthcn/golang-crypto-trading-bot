@@ -17,7 +17,7 @@ A golang implementation of a console-based trading bot for cryptocurrency exchan
 Download a release or directly build the code from this repository.
 
 ``` bash
-go get github.com/saniales/golang-crypto-trading-bot
+go get github.com/khoandthcn/golang-crypto-trading-bot
 ```
 
 If you need to, you can create a strategy and bind it to the bot:
