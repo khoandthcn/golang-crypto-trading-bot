@@ -77,7 +77,7 @@ var Watch5Sec = strategies.IntervalStrategy{
 				if err != nil {
 					return err
 				}
-				support := findSupportPoint(candle, mk)
+				support := findSupportPoint(candle, mkSummary.Last)
 				var action string
 				supRange := support[0].Value.Sub(support[len(support)-1].Value)
 				if supRange.Equal(decimal.Zero) {
@@ -141,7 +141,7 @@ func (s SupportPoint) String() string {
 	return fmt.Sprintf("%s(%s)", s.Value, s.Weight)
 }
 
-func findSupportPoint(candle []environment.CandleStick, mk *environment.Market) []SupportPoint {
+func findSupportPoint(candle []environment.CandleStick, last decimal.Decimal) []SupportPoint {
 	dh := make([]decimal.Decimal, len(candle))
 	dl := make([]decimal.Decimal, len(candle))
 	threshold := 0.02
@@ -187,14 +187,17 @@ func findSupportPoint(candle []environment.CandleStick, mk *environment.Market) 
 		}
 	}
 	logrus.Infof("Support: %s", supportPoint)
-	lastCandle := candle[len(candle)-1]
-	var startIdx, endIdx int
+	startIdx := 0
+	endIdx := 0
 	for i := 0; i < len(supportPoint); i++ {
-		if lastCandle.High.LessThanOrEqual(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) {
+		if last.LessThan(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) &&
+			supportPoint[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
 			startIdx = i
 		}
-		if lastCandle.Low.LessThanOrEqual(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) {
-			endIdx = i + 1
+		if last.GreaterThan(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) &&
+			supportPoint[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) && endIdx == 0 {
+			endIdx = i
+			break
 		}
 	}
 	return supportPoint[startIdx : endIdx+1]
