@@ -6,6 +6,7 @@
 # Folders
 _obj
 _test
+vendor
 
 # Architecture specific extensions/prefixes
 *.[568vq]
@@ -23,9 +24,12 @@ _testmain.go
 *.test
 *.prof
 
+*.png
+
 golang-crypto-trading-bot
 
 .bot_config.yaml
 .bot_config.yml
 
+.vscodevendor
 .vscode
