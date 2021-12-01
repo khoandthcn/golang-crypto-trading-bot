@@ -20,6 +20,13 @@ Download a release or directly build the code from this repository.
 go get github.com/khoandthcn/golang-crypto-trading-bot
 ```
 
+Build and run
+``` bash
+cd golang-crypto-trading-bot
+go build -o gobot main.go
+./gobot start
+```
+
 If you need to, you can create a strategy and bind it to the bot:
 
 ``` go

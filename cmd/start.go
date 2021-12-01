@@ -37,7 +37,7 @@ var startCmd = &cobra.Command{
 	Run:   executeStartCommand,
 }
 
-var botConfig environment.BotConfig
+var BotConfig environment.BotConfig
 
 func init() {
 	RootCmd.AddCommand(startCmd)
@@ -54,7 +54,7 @@ func initConfigs() error {
 	if err != nil {
 		return err
 	}
-	err = yaml.Unmarshal(contentToMarshal, &botConfig)
+	err = yaml.Unmarshal(contentToMarshal, &BotConfig)
 	if err != nil {
 		return err
 	}
@@ -70,14 +70,14 @@ func executeStartCommand(cmd *cobra.Command, args []string) {
 	fmt.Println("DONE")
 
 	fmt.Print("Getting exchange info ... ")
-	wrappers := make([]exchanges.ExchangeWrapper, len(botConfig.ExchangeConfigs))
-	for i, config := range botConfig.ExchangeConfigs {
-		wrappers[i] = helpers.InitExchange(config, botConfig.SimulationModeOn, config.FakeBalances, config.DepositAddresses)
+	wrappers := make([]exchanges.ExchangeWrapper, len(BotConfig.ExchangeConfigs))
+	for i, config := range BotConfig.ExchangeConfigs {
+		wrappers[i] = helpers.InitExchange(config, BotConfig.SimulationModeOn, config.FakeBalances, config.DepositAddresses)
 	}
 	fmt.Println("DONE")
 
-	fmt.Print("Getting markets cold info ... ")
-	for _, strategyConf := range botConfig.Strategies {
+	fmt.Print("Getting markets cold info ...")
+	for _, strategyConf := range BotConfig.Strategies {
 		mkts := make([]*environment.Market, len(strategyConf.Markets))
 		for i, mkt := range strategyConf.Markets {
 			currencies := strings.SplitN(mkt.Name, "-", 2)

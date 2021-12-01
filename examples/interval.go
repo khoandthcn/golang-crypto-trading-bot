@@ -16,36 +16,109 @@
 package examples
 
 import (
-	"context"
 	"fmt"
-	"log"
+	"sort"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	bot "github.com/saniales/golang-crypto-trading-bot/cmd"
 	"github.com/saniales/golang-crypto-trading-bot/environment"
 	"github.com/saniales/golang-crypto-trading-bot/exchanges"
+	"github.com/saniales/golang-crypto-trading-bot/plot"
 	"github.com/saniales/golang-crypto-trading-bot/strategies"
-	"github.com/shomali11/slacker"
+	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
-	"github.com/slack-go/slack"
+	pl "gonum.org/v1/plot"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
+
+// var telegramBot *tb.Bot
+
+var chatGroup *tb.Chat
+var telegramBot *tb.Bot
+var sendOption = &tb.SendOptions{
+	ParseMode: tb.ModeMarkdown,
+}
 
 // Watch5Sec prints out the info of the market every 5 seconds.
 var Watch5Sec = strategies.IntervalStrategy{
 	Model: strategies.StrategyModel{
 		Name: "Watch5Sec",
 		Setup: func(wrappers []exchanges.ExchangeWrapper, markets []*environment.Market) error {
-			fmt.Println("Watch5Sec starting")
+			chatGroup = &tb.Chat{
+				ID: bot.BotConfig.TelegramConfig.GroupID,
+			}
+			telegramBot, _ = tb.NewBot(tb.Settings{
+				Token:  bot.BotConfig.TelegramConfig.BotToken,
+				Poller: &tb.LongPoller{Timeout: 10 * time.Second},
+			})
+			msg, err := telegramBot.Send(chatGroup, "Hello every body, I'm ready to go!", sendOption)
+			if err != nil {
+				logrus.Warning("Failed to send message: " + msg.Text)
+			}
 			return nil
 		},
 		OnUpdate: func(wrappers []exchanges.ExchangeWrapper, markets []*environment.Market) error {
-			_, err := wrappers[0].GetMarketSummary(markets[0])
-			if err != nil {
-				return err
+			for i, mk := range markets {
+				wr := wrappers[0]
+				mkSummary, err := wr.GetMarketSummary(markets[i])
+				if err != nil {
+					return err
+				}
+				// baseBalance, err := wr.GetBalance(mk.BaseCurrency)
+				// if err != nil {
+				// 	return err
+				// }
+				// marketBalance, err := wr.GetBalance(mk.MarketCurrency)
+				// if err != nil {
+				// 	return err
+				// }
+
+				candle, err := wr.GetCandles(mk)
+				if err != nil {
+					return err
+				}
+				support := findSupportPoint(candle, mk)
+				var action string
+				supRange := support[0].Value.Sub(support[len(support)-1].Value)
+				if supRange.Equal(decimal.Zero) {
+					// find one support only
+					if mkSummary.Last.GreaterThan(support[0].Value) {
+						action = fmt.Sprintf("BUY at %s", support[0].Value)
+					} else if mkSummary.Last.LessThan(support[0].Value) {
+						action = fmt.Sprintf("SELL at %s", support[0].Value)
+					} else {
+						action = "NOTHING"
+					}
+				} else {
+					position := mkSummary.Last.Sub(support[len(support)-1].Value).
+						Div(supRange)
+					if position.LessThanOrEqual(decimal.NewFromFloat(0.1)) {
+						action = fmt.Sprintf("BUY at %s", support[len(support)-1].Value)
+					} else if position.GreaterThanOrEqual(decimal.NewFromFloat(0.9)) {
+						action = fmt.Sprintf("SELL at %s", support[0].Value)
+					} else {
+						action = "NOTHING"
+					}
+				}
+				logrus.Infof("Market %s-%s: last=%s, Supp=%s\n\tRecommended: %s",
+					mk.BaseCurrency, mk.MarketCurrency, mkSummary.Last, support, action)
+				if action != "NOTHING" {
+					msg, err := telegramBot.Send(chatGroup,
+						fmt.Sprintf("Market %s[%s]-%s[%s]: last=%s, Supp=%s\n\tRecommended: %s",
+							mk.BaseCurrency, mk.MarketCurrency, mkSummary.Last, support, action),
+						sendOption)
+					if err != nil {
+						logrus.Warning("Failed to send message: " + msg.Text)
+					}
+				}
+
+				// elliottModel := ElliottWaveModel(candle[0:100])
+				// logrus.Infof("Elliott Wave params: %s", elliottModel)
+				// exportPng(candle[len(candle)-101:len(candle)-1], fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
+				// lastCandle := candle[len(candle)-1]
+				// logrus.Infof("Last stick: Open: %s, High: %s, Low: %s, Close: %s, Vol: %s",
+				// lastCandle.Open, lastCandle.High, lastCandle.Low, lastCandle.Close, lastCandle.Volume)
 			}
-			logrus.Info(markets)
-			logrus.Info(wrappers)
 			return nil
 		},
 		OnError: func(err error) {
@@ -56,133 +129,92 @@ var Watch5Sec = strategies.IntervalStrategy{
 			return nil
 		},
 	},
-	Interval: time.Second * 5,
+	Interval: time.Minute * 5,
 }
 
-var slackBot *slacker.Slacker
-
-// SlackIntegrationExample send messages to Slack as a strategy.
-// RTM not supported (and usually not requested when trading, this is an automated slackBot).
-var SlackIntegrationExample = strategies.IntervalStrategy{
-	Model: strategies.StrategyModel{
-		Name: "SlackIntegrationExample",
-		Setup: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			// connect slack token
-			slackBot = slacker.NewClient("YOUR-TOKEN-HERE")
-			slackBot.Init(func() {
-				log.Println("Slack BOT Connected")
-			})
-			slackBot.Err(func(err string) {
-				log.Println("Error during slack slackBot connection: ", err)
-			})
-			go func() {
-				err := slackBot.Listen(context.Background())
-				if err != nil {
-					log.Fatal(err)
-				}
-			}()
-			return nil
-		},
-		OnUpdate: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			//if updates has requirements
-			_, _, err := slackBot.Client().PostMessage("DESIRED-CHANNEL", slack.MsgOptionText("OMG something happening!!!!!", true))
-			return err
-		},
-		OnError: func(err error) {
-			logrus.Errorf("I Got an error %s", err)
-		},
-	},
-	Interval: time.Second * 10,
+type SupportPoint struct {
+	Value  decimal.Decimal
+	Weight decimal.Decimal
 }
 
-var telegramBot *tb.Bot
-
-// TelegramIntegrationExample send messages to Telegram as a strategy.
-var TelegramIntegrationExample = strategies.IntervalStrategy{
-	Model: strategies.StrategyModel{
-		Name: "TelegramIntegrationExample",
-		Setup: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			telegramBot, err := tb.NewBot(tb.Settings{
-				Token:  "YOUR-TELEGRAM-TOKEN",
-				Poller: &tb.LongPoller{Timeout: 10 * time.Second},
-			})
-
-			if err != nil {
-				return err
-			}
-
-			telegramBot.Start()
-			return nil
-		},
-		OnUpdate: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			telegramBot.Send(&tb.User{
-				Username: "YOUR-USERNAME-GROUP-OR-USER",
-			}, "OMG SOMETHING HAPPENING!!!!!", tb.SendOptions{})
-
-			/*
-				// Optionally it can have options
-				telegramBot.Send(tb.User{
-					Username: "YOUR-JOINED-GROUP-USERNAME",
-				}, "OMG SOMETHING HAPPENING!!!!!", tb.SendOptions{})
-			*/
-			return nil
-		},
-		OnError: func(err error) {
-			logrus.Errorf("I Got an error %s", err)
-			telegramBot.Stop()
-		},
-		TearDown: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			telegramBot.Stop()
-			return nil
-		},
-	},
+func (s SupportPoint) String() string {
+	return fmt.Sprintf("%s(%s)", s.Value, s.Weight)
 }
 
-var discordBot *discordgo.Session
+func findSupportPoint(candle []environment.CandleStick, mk *environment.Market) []SupportPoint {
+	dh := make([]decimal.Decimal, len(candle))
+	dl := make([]decimal.Decimal, len(candle))
+	threshold := 0.05
+	for i := 1; i < len(dh); i++ {
+		dh[i] = candle[i].High.Sub(candle[i-1].High)
+		dl[i] = candle[i].Low.Sub(candle[i-1].Low)
+	}
+	var criticalPoint []decimal.Decimal
+	for i := 1; i < len(dh)-1; i++ {
+		if dh[i].IsNegative() && dh[i+1].IsPositive() {
+			// local maximal
+			criticalPoint = append(criticalPoint, candle[i].High)
+			// decimal.Max(candle[i].Open, candle[i].Close))
+		} else if dh[i].IsPositive() && dh[i+1].IsNegative() {
+			// local minimal
+			criticalPoint = append(criticalPoint, candle[i].High)
+			// decimal.Max(candle[i].Open, candle[i].Close))
+		}
+		if dl[i].IsNegative() && dl[i+1].IsPositive() {
+			// local maximal
+			criticalPoint = append(criticalPoint, candle[i].Low)
+			// decimal.Max(candle[i].Open, candle[i].Close))
+		} else if dl[i].IsPositive() && dl[i+1].IsNegative() {
+			// local minimal
+			criticalPoint = append(criticalPoint, candle[i].Low)
+			// decimal.Max(candle[i].Open, candle[i].Close))
+		}
+	}
+	sort.Slice(criticalPoint, func(i, j int) bool {
+		return criticalPoint[i].GreaterThan(criticalPoint[j])
+	})
+	supportPoint := []SupportPoint{}
+	sum := criticalPoint[0]
+	count := decimal.NewFromInt(1)
+	for i := 1; i < len(criticalPoint); i++ {
+		if sum.Div(count).Sub(criticalPoint[i]).Div(sum.Div(count)).LessThanOrEqual(decimal.NewFromFloat(threshold)) {
+			sum = sum.Add(criticalPoint[i])
+			count = count.Add(decimal.NewFromInt(1))
+		} else {
+			supportPoint = append(supportPoint, SupportPoint{Value: sum.Div(count), Weight: count})
+			sum = criticalPoint[i]
+			count = decimal.NewFromInt(1)
+		}
+	}
+	lastCandle := candle[len(candle)-1]
+	var startIdx, endIdx int
+	for i := 0; i < len(supportPoint); i++ {
+		if lastCandle.High.LessThanOrEqual(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) {
+			startIdx = i
+		}
+		if lastCandle.Low.LessThanOrEqual(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) {
+			endIdx = i + 1
+		}
+	}
+	return supportPoint[startIdx : endIdx+1]
+}
 
-// DiscordIntegrationExample sends messages to a specified discord channel.
-var DiscordIntegrationExample = strategies.IntervalStrategy{
-	Model: strategies.StrategyModel{
-		Name: "DiscordIntegrationExample",
-		Setup: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			// Create a new Discord session using the provided bot token.
-			discordBot, err := discordgo.New("Bot " + "YOUR-DISCORD-TOKEN")
-			if err != nil {
-				return err
-			}
+func exportPng(candle []environment.CandleStick, fileName string) error {
+	candleSticks, err := plot.NewCandlesticks(candle)
+	if err != nil {
+		return err
+	}
+	p := pl.New()
+	p.Title.Text = "Candlesticks"
+	p.X.Label.Text = "Time"
+	p.Y.Label.Text = "Price"
+	p.X.Tick.Marker = pl.TimeTicks{Format: "2006-01-02\n15:04:05"}
 
-			go func() {
-				err = discordBot.Open()
-				if err != nil {
-					return
-				}
-			}()
+	p.Add(candleSticks)
 
-			//sleep some time
-			time.Sleep(time.Second * 5)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		},
-		OnUpdate: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			_, err := discordBot.ChannelMessageSend("CHANNEL-ID", "OMG SOMETHING HAPPENING!!!!!")
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-		OnError: func(err error) {
-			logrus.Errorf("I Got an error %s", err)
-			telegramBot.Stop()
-		},
-		TearDown: func([]exchanges.ExchangeWrapper, []*environment.Market) error {
-			err := discordBot.Close()
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-	},
+	err = p.Save(450, 200, fileName)
+	if err != nil {
+		return err
+	}
+	return nil
 }

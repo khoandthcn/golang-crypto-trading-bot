@@ -48,8 +48,15 @@ type ExchangeBindingsConfig struct {
 	MarketName string `yaml:"market_name"` // Represents the name of the market as seen from the exchange.
 }
 
+// TelegramConfig represents telegram notification channel config
+type TelegramConfig struct {
+	BotToken string `yaml:"bot_token"`
+	GroupID  int64  `yaml:"group_id"`
+}
+
 // BotConfig contains all config data of the bot, which can be also loaded from config file.
 type BotConfig struct {
+	TelegramConfig   TelegramConfig   `yaml:"telegram_configs"`
 	SimulationModeOn bool             `yaml:"simulation_mode"`  // if true, do not create real orders and do not get real balance
 	ExchangeConfigs  []ExchangeConfig `yaml:"exchange_configs"` // Represents the current exchange configuration.
 	Strategies       []StrategyConfig `yaml:"strategies"`       // Represents the current strategies adopted by the bot.
