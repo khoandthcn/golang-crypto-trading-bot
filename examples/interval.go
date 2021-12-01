@@ -104,7 +104,7 @@ var Watch5Sec = strategies.IntervalStrategy{
 					mk.BaseCurrency, mk.MarketCurrency, mkSummary.Last, support, action)
 				if action != "NOTHING" {
 					msg, err := telegramBot.Send(chatGroup,
-						fmt.Sprintf("Market %s[%s]-%s[%s]: last=%s, Supp=%s\n\tRecommended: %s",
+						fmt.Sprintf("Market %s-%s: last=%s, Supp=%s\n\tRecommended: %s",
 							mk.BaseCurrency, mk.MarketCurrency, mkSummary.Last, support, action),
 						sendOption)
 					if err != nil {
@@ -144,7 +144,7 @@ func (s SupportPoint) String() string {
 func findSupportPoint(candle []environment.CandleStick, mk *environment.Market) []SupportPoint {
 	dh := make([]decimal.Decimal, len(candle))
 	dl := make([]decimal.Decimal, len(candle))
-	threshold := 0.05
+	threshold := 0.02
 	for i := 1; i < len(dh); i++ {
 		dh[i] = candle[i].High.Sub(candle[i-1].High)
 		dl[i] = candle[i].Low.Sub(candle[i-1].Low)
@@ -186,6 +186,7 @@ func findSupportPoint(candle []environment.CandleStick, mk *environment.Market) 
 			count = decimal.NewFromInt(1)
 		}
 	}
+	logrus.Infof("Support: %s", supportPoint)
 	lastCandle := candle[len(candle)-1]
 	var startIdx, endIdx int
 	for i := 0; i < len(supportPoint); i++ {

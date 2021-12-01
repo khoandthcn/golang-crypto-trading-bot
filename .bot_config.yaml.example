@@ -1,4 +1,7 @@
 simulation_mode: true
+telegram_configs:
+  bot_token: telegram_bot_token
+  group_id: telegram_group_id
 exchange_configs:
   - exchange: bitfinex
     public_key: bitfinex_public_key
