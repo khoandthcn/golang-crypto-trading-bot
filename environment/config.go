@@ -52,6 +52,7 @@ type ExchangeBindingsConfig struct {
 type TelegramConfig struct {
 	BotToken string `yaml:"bot_token"`
 	GroupID  int64  `yaml:"group_id"`
+	Enabled  bool   `yaml:"enabled"`
 }
 
 // BotConfig contains all config data of the bot, which can be also loaded from config file.

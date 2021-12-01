@@ -39,6 +39,8 @@ var sendOption = &tb.SendOptions{
 	ParseMode: tb.ModeMarkdown,
 }
 
+var telegram_enabled = true
+
 // Watch5Sec prints out the info of the market every 5 seconds.
 var Watch5Sec = strategies.IntervalStrategy{
 	Model: strategies.StrategyModel{
@@ -51,9 +53,12 @@ var Watch5Sec = strategies.IntervalStrategy{
 				Token:  bot.BotConfig.TelegramConfig.BotToken,
 				Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 			})
-			msg, err := telegramBot.Send(chatGroup, "Hello every body, I'm ready to go!", sendOption)
-			if err != nil {
-				logrus.Warning("Failed to send message: " + msg.Text)
+			telegram_enabled = bot.BotConfig.TelegramConfig.Enabled
+			if telegram_enabled {
+				msg, err := telegramBot.Send(chatGroup, "Hello every body, I'm ready to go!", sendOption)
+				if err != nil {
+					logrus.Warning("Failed to send message: " + msg.Text)
+				}
 			}
 			return nil
 		},
@@ -103,12 +108,14 @@ var Watch5Sec = strategies.IntervalStrategy{
 				logrus.Infof("Market %s-%s: last=%s, Supp=%s\n\tRecommended: %s",
 					mk.BaseCurrency, mk.MarketCurrency, mkSummary.Last, support, action)
 				if action != "NOTHING" {
-					msg, err := telegramBot.Send(chatGroup,
-						fmt.Sprintf("Market %s-%s: last=%s, Supp=%s\n\tRecommended: %s",
-							mk.BaseCurrency, mk.MarketCurrency, mkSummary.Last, support, action),
-						sendOption)
-					if err != nil {
-						logrus.Warning("Failed to send message: " + msg.Text)
+					if telegram_enabled {
+						msg, err := telegramBot.Send(chatGroup,
+							fmt.Sprintf("Market %s-%s: last=%s, Supp=%s\n\tRecommended: %s",
+								mk.BaseCurrency, mk.MarketCurrency, mkSummary.Last, support, action),
+							sendOption)
+						if err != nil {
+							logrus.Warning("Failed to send message: " + msg.Text)
+						}
 					}
 				}
 

@@ -67,6 +67,7 @@ simulation_mode: true # if you want to enable simulation mode.
 telegram_configs:
   bot_token: telegram_bot_token
   group_id: telegram_group_id
+  enabled: true
 exchange_configs:
   - exchange: bitfinex
     public_key: bitfinex_public_key
