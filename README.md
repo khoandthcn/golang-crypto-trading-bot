@@ -64,6 +64,9 @@ Create a configuration file from this example or run the `init` command of the c
 
 ``` yaml
 simulation_mode: true # if you want to enable simulation mode.
+telegram_configs:
+  bot_token: telegram_bot_token
+  group_id: telegram_group_id
 exchange_configs:
   - exchange: bitfinex
     public_key: bitfinex_public_key
