@@ -116,10 +116,10 @@ strategies:
 
 Feel free to donate:
 
-| METHOD  | ADDRESS                                     |
-|-------- |-------------------------------------------- |
-| Paypal  | https://paypal.me/AlessandroSanino          |
-| BTC     | 1DVgmv6jkUiGrnuEv1swdGRyhQsZjX9MT3          |
-| XVG     | DFstPiWFXjX8UCyUCxfeVpk6JkgaLBSNvS          |
-| ETH     | 0x2fe7bd8a41e91e9284aada0055dbb15ecececf02  |
-| USDT    | 18obCEVmbT6MHXDcPoFwnUuCmkttLbK5Xo          |
+| METHOD | NETWORK  | ADDRESS                                     |
+|------- |--------- |-------------------------------------------- |
+| BTC    | BTC      | bc1qey6hml7w2k6amucg22wa5kze68j368peulahhw  |
+| DOGE   | BEP20    | DArT6qiYRXMPz5kHW2iXQLvU9EHcUXhX3L          |
+| SHIB   | BEP20    | 0x37d5D826c980401B2707EE956f5feC263f378877  |
+| ETH    | BEP20    | 0x37d5D826c980401B2707EE956f5feC263f378877  |
+| BNB    | BEP20    | 0x37d5D826c980401B2707EE956f5feC263f378877  |
