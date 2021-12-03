@@ -242,7 +242,7 @@ func (wrapper *KucoinWrapper) CalculateWithdrawFees(market *environment.Market, 
 }
 
 // GetCandles gets the candle data from the exchange.
-func (wrapper *KucoinWrapper) GetCandles(market *environment.Market) ([]environment.CandleStick, error) {
+func (wrapper *KucoinWrapper) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	panic("Not Implemented")
 }
 

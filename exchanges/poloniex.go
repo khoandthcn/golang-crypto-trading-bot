@@ -78,7 +78,7 @@ func (wrapper *PoloniexWrapper) GetMarkets() ([]*environment.Market, error) {
 }
 
 // GetCandles gets the candle data from the exchange.
-func (wrapper *PoloniexWrapper) GetCandles(market *environment.Market) ([]environment.CandleStick, error) {
+func (wrapper *PoloniexWrapper) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	if !wrapper.websocketOn {
 		poloniesCandles, err := wrapper.api.ChartData(MarketNameFor(market, wrapper))
 		if err != nil {

@@ -17,20 +17,15 @@ package examples
 
 import (
 	"fmt"
-	"sort"
 	"time"
 
 	bot "github.com/saniales/golang-crypto-trading-bot/cmd"
 	"github.com/saniales/golang-crypto-trading-bot/environment"
 	"github.com/saniales/golang-crypto-trading-bot/exchanges"
-	"github.com/saniales/golang-crypto-trading-bot/optimize"
 	"github.com/saniales/golang-crypto-trading-bot/plot"
 	"github.com/saniales/golang-crypto-trading-bot/strategies"
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
-	pl "gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/plotutil"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
@@ -81,11 +76,17 @@ var Watch5Sec = strategies.IntervalStrategy{
 				// 	return err
 				// }
 
-				candle, err := wr.GetCandles(mk)
+				candle, err := wr.GetCandles(mk, "4h")
 				if err != nil {
 					return err
 				}
-				support := findSupportPoint(candle, mkSummary.Last)
+				candleChart := plot.CandleStickChart{
+					CurrentPrice: mkSummary.Last,
+					CandlePeriod: time.Hour * 4,
+					CandleSticks: candle,
+					OrderBook:    nil,
+				}
+				support := candleChart.GetSupportPrices()
 				var action string
 				supRange := support[0].Value.Sub(support[len(support)-1].Value)
 				if supRange.Equal(decimal.Zero) {
@@ -120,7 +121,7 @@ var Watch5Sec = strategies.IntervalStrategy{
 							logrus.Warning("Failed to send message: " + msg.Text)
 						}
 
-						exportPng(candle, support, fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
+						candleChart.ExportPng(fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
 
 						p := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))}
 						_, err = telegramBot.Send(chatGroup, p)
@@ -150,137 +151,137 @@ var Watch5Sec = strategies.IntervalStrategy{
 	Interval: time.Minute * 5,
 }
 
-type SupportPoint struct {
-	Value  decimal.Decimal
-	Weight decimal.Decimal
-}
+// type SupportPoint struct {
+// 	Value  decimal.Decimal
+// 	Weight decimal.Decimal
+// }
 
-func (s SupportPoint) String() string {
-	return fmt.Sprintf("%s(%s)", s.Value, s.Weight)
-}
+// func (s SupportPoint) String() string {
+// 	return fmt.Sprintf("%s(%s)", s.Value, s.Weight)
+// }
 
-func findSupportPoint(candle []environment.CandleStick, last decimal.Decimal) []SupportPoint {
-	dh := make([]decimal.Decimal, len(candle))
-	dl := make([]decimal.Decimal, len(candle))
-	threshold := 0.02
-	for i := 1; i < len(dh); i++ {
-		dh[i] = candle[i].High.Sub(candle[i-1].High)
-		dl[i] = candle[i].Low.Sub(candle[i-1].Low)
-	}
-	var criticalPoint []decimal.Decimal
-	for i := 1; i < len(dh)-1; i++ {
-		if dh[i].IsNegative() && dh[i+1].IsPositive() {
-			// local maximal
-			criticalPoint = append(criticalPoint, candle[i].High)
-			// decimal.Max(candle[i].Open, candle[i].Close))
-		} else if dh[i].IsPositive() && dh[i+1].IsNegative() {
-			// local minimal
-			criticalPoint = append(criticalPoint, candle[i].High)
-			// decimal.Max(candle[i].Open, candle[i].Close))
-		}
-		if dl[i].IsNegative() && dl[i+1].IsPositive() {
-			// local maximal
-			criticalPoint = append(criticalPoint, candle[i].Low)
-			// decimal.Max(candle[i].Open, candle[i].Close))
-		} else if dl[i].IsPositive() && dl[i+1].IsNegative() {
-			// local minimal
-			criticalPoint = append(criticalPoint, candle[i].Low)
-			// decimal.Max(candle[i].Open, candle[i].Close))
-		}
-	}
-	sort.Slice(criticalPoint, func(i, j int) bool {
-		return criticalPoint[i].GreaterThan(criticalPoint[j])
-	})
-	supportPoint := []SupportPoint{}
-	sum := criticalPoint[0]
-	count := decimal.NewFromInt(1)
-	for i := 1; i < len(criticalPoint); i++ {
-		if sum.Div(count).Sub(criticalPoint[i]).Div(sum.Div(count)).LessThanOrEqual(decimal.NewFromFloat(threshold)) {
-			sum = sum.Add(criticalPoint[i])
-			count = count.Add(decimal.NewFromInt(1))
-		} else {
-			supportPoint = append(supportPoint, SupportPoint{Value: sum.Div(count), Weight: count})
-			sum = criticalPoint[i]
-			count = decimal.NewFromInt(1)
-		}
-	}
-	logrus.Infof("Support: %s", supportPoint)
-	startIdx := 0
-	endIdx := 0
-	for i := 0; i < len(supportPoint); i++ {
-		if last.LessThan(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) &&
-			supportPoint[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
-			startIdx = i
-		}
-		if last.GreaterThan(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) &&
-			supportPoint[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) && endIdx == 0 {
-			endIdx = i
-			break
-		}
-	}
-	return supportPoint[startIdx : endIdx+1]
-}
+// func findSupportPoint(candle []environment.CandleStick, last decimal.Decimal) []SupportPoint {
+// 	dh := make([]decimal.Decimal, len(candle))
+// 	dl := make([]decimal.Decimal, len(candle))
+// 	threshold := 0.02
+// 	for i := 1; i < len(dh); i++ {
+// 		dh[i] = candle[i].High.Sub(candle[i-1].High)
+// 		dl[i] = candle[i].Low.Sub(candle[i-1].Low)
+// 	}
+// 	var criticalPoint []decimal.Decimal
+// 	for i := 1; i < len(dh)-1; i++ {
+// 		if dh[i].IsNegative() && dh[i+1].IsPositive() {
+// 			// local maximal
+// 			criticalPoint = append(criticalPoint, candle[i].High)
+// 			// decimal.Max(candle[i].Open, candle[i].Close))
+// 		} else if dh[i].IsPositive() && dh[i+1].IsNegative() {
+// 			// local minimal
+// 			criticalPoint = append(criticalPoint, candle[i].High)
+// 			// decimal.Max(candle[i].Open, candle[i].Close))
+// 		}
+// 		if dl[i].IsNegative() && dl[i+1].IsPositive() {
+// 			// local maximal
+// 			criticalPoint = append(criticalPoint, candle[i].Low)
+// 			// decimal.Max(candle[i].Open, candle[i].Close))
+// 		} else if dl[i].IsPositive() && dl[i+1].IsNegative() {
+// 			// local minimal
+// 			criticalPoint = append(criticalPoint, candle[i].Low)
+// 			// decimal.Max(candle[i].Open, candle[i].Close))
+// 		}
+// 	}
+// 	sort.Slice(criticalPoint, func(i, j int) bool {
+// 		return criticalPoint[i].GreaterThan(criticalPoint[j])
+// 	})
+// 	supportPoint := []SupportPoint{}
+// 	sum := criticalPoint[0]
+// 	count := decimal.NewFromInt(1)
+// 	for i := 1; i < len(criticalPoint); i++ {
+// 		if sum.Div(count).Sub(criticalPoint[i]).Div(sum.Div(count)).LessThanOrEqual(decimal.NewFromFloat(threshold)) {
+// 			sum = sum.Add(criticalPoint[i])
+// 			count = count.Add(decimal.NewFromInt(1))
+// 		} else {
+// 			supportPoint = append(supportPoint, SupportPoint{Value: sum.Div(count), Weight: count})
+// 			sum = criticalPoint[i]
+// 			count = decimal.NewFromInt(1)
+// 		}
+// 	}
+// 	logrus.Infof("Support: %s", supportPoint)
+// 	startIdx := 0
+// 	endIdx := 0
+// 	for i := 0; i < len(supportPoint); i++ {
+// 		if last.LessThan(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) &&
+// 			supportPoint[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
+// 			startIdx = i
+// 		}
+// 		if last.GreaterThan(supportPoint[i].Value.Mul(decimal.NewFromFloat(1))) &&
+// 			supportPoint[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) && endIdx == 0 {
+// 			endIdx = i
+// 			break
+// 		}
+// 	}
+// 	return supportPoint[startIdx : endIdx+1]
+// }
 
-func exportPng(candle []environment.CandleStick, support []SupportPoint, fileName string) error {
-	candleSticks, err := plot.NewCandlesticks(candle)
-	if err != nil {
-		return err
-	}
-	p := pl.New()
-	p.Title.Text = "Candlesticks"
-	p.X.Label.Text = "Time"
-	p.Y.Label.Text = "Price"
-	// p.X.Tick.Marker = pl.TimeTicks{Format: "2006-01-02\n15:04:05"}
+// func exportPng(candle []environment.CandleStick, support []SupportPoint, fileName string) error {
+// 	candleSticks, err := plot.NewCandlesticks(candle)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	p := pl.New()
+// 	p.Title.Text = "Candlesticks"
+// 	p.X.Label.Text = "Time"
+// 	p.Y.Label.Text = "Price"
+// 	// p.X.Tick.Marker = pl.TimeTicks{Format: "2006-01-02\n15:04:05"}
 
-	p.Add(candleSticks)
+// 	p.Add(candleSticks)
 
-	for i := 0; i < len(support); i++ {
-		if support[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
-			value, _ := support[i].Value.Float64()
-			err = plotutil.AddLines(p, fmt.Sprintf("S(%s)", support[i].Weight), HorizontalLine(len(candle), value))
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
+// 	for i := 0; i < len(support); i++ {
+// 		if support[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
+// 			value, _ := support[i].Value.Float64()
+// 			err = plotutil.AddLines(p, fmt.Sprintf("S(%s)", support[i].Weight), HorizontalLine(len(candle), value))
+// 			if err != nil {
+// 				panic(err)
+// 			}
+// 		}
+// 	}
 
-	logrus.Info("Find trendline")
-	plotutil.AddLines(p, "Trend Line", TrendLine(candle))
+// 	logrus.Info("Find trendline")
+// 	plotutil.AddLines(p, "Trend Line", TrendLine(candle))
 
-	logrus.Info("done")
-	err = p.Save(1024, 768, fileName)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// 	logrus.Info("done")
+// 	err = p.Save(1024, 768, fileName)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
-func TrendLine(candle []environment.CandleStick) plotter.XYs {
-	xTrain := make([]float64, len(candle))
-	yTrain := make([]float64, len(candle))
-	for i := 0; i < len(candle); i++ {
-		xTrain[i] = float64(i)
-		yTrain[i], _ = candle[i].High.Float64()
-	}
-	// Fit
-	lr := optimize.LinearRegression{NIter: 100, Method: "gd"}
-	lr.Fit(xTrain, yTrain)
-	logrus.Printf("Trendline %s", lr.Weights)
-	yPredict := lr.Predict(xTrain)
-	pts := make(plotter.XYs, len(candle))
-	for i := 0; i < len(candle); i++ {
-		pts[i].X = xTrain[i]
-		pts[i].Y = yPredict[i]
-	}
+// func TrendLine(candle []environment.CandleStick) plotter.XYs {
+// 	xTrain := make([]float64, len(candle))
+// 	yTrain := make([]float64, len(candle))
+// 	for i := 0; i < len(candle); i++ {
+// 		xTrain[i] = float64(i)
+// 		yTrain[i], _ = candle[i].High.Float64()
+// 	}
+// 	// Fit
+// 	lr := optimize.LinearRegression{NIter: 100, Method: "gd"}
+// 	lr.Fit(xTrain, yTrain)
+// 	logrus.Printf("Trendline %s", lr.Weights)
+// 	yPredict := lr.Predict(xTrain)
+// 	pts := make(plotter.XYs, len(candle))
+// 	for i := 0; i < len(candle); i++ {
+// 		pts[i].X = xTrain[i]
+// 		pts[i].Y = yPredict[i]
+// 	}
 
-	return pts
-}
+// 	return pts
+// }
 
-func HorizontalLine(n int, h float64) plotter.XYs {
-	pts := make(plotter.XYs, n)
-	for i := range pts {
-		pts[i].X = float64(i)
-		pts[i].Y = h
-	}
-	return pts
-}
+// func HorizontalLine(n int, h float64) plotter.XYs {
+// 	pts := make(plotter.XYs, n)
+// 	for i := range pts {
+// 		pts[i].X = float64(i)
+// 		pts[i].Y = h
+// 	}
+// 	return pts
+// }

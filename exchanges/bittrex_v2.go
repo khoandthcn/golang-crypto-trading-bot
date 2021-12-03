@@ -116,8 +116,8 @@ func (wrapper *BittrexWrapperV2) GetMarketSummary(market *environment.Market) (*
 }
 
 // GetCandles gets the candle data from the exchange.
-func (wrapper *BittrexWrapperV2) GetCandles(market *environment.Market) ([]environment.CandleStick, error) {
-	bittrexCandles, err := bittrex.GetTicks(MarketNameFor(market, wrapper), "30m")
+func (wrapper *BittrexWrapperV2) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
+	bittrexCandles, err := bittrex.GetTicks(MarketNameFor(market, wrapper), interval)
 	if err != nil {
 		return nil, err
 	}

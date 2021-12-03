@@ -193,7 +193,7 @@ func convertFromBittrexCandle(candle api.Candle) environment.CandleStick {
 }
 
 // GetCandles gets the candle data from the exchange.
-func (wrapper *BittrexWrapper) GetCandles(market *environment.Market) ([]environment.CandleStick, error) {
+func (wrapper *BittrexWrapper) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	panic("Not supported in Bittrex V1")
 }
 

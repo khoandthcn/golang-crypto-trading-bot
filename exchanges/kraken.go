@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/beldur/kraken-go-api-client"
+	krakenapi "github.com/beldur/kraken-go-api-client"
 	"github.com/fatih/structs"
 	"github.com/saniales/golang-crypto-trading-bot/environment"
 	"github.com/shopspring/decimal"
@@ -195,7 +195,7 @@ func (wrapper *KrakenWrapper) GetMarketSummary(market *environment.Market) (*env
 }
 
 // GetCandles gets the candle data from the exchange.
-func (wrapper *KrakenWrapper) GetCandles(market *environment.Market) ([]environment.CandleStick, error) {
+func (wrapper *KrakenWrapper) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	if !wrapper.websocketOn {
 		now := time.Now()
 

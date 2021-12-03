@@ -231,9 +231,9 @@ func (wrapper *BinanceWrapper) GetMarketSummary(market *environment.Market) (*en
 }
 
 // GetCandles gets the candle data from the exchange.
-func (wrapper *BinanceWrapper) GetCandles(market *environment.Market) ([]environment.CandleStick, error) {
+func (wrapper *BinanceWrapper) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	if !wrapper.websocketOn {
-		binanceCandles, err := wrapper.api.NewKlinesService().Symbol(MarketNameFor(market, wrapper)).Interval("4h").Do(context.Background())
+		binanceCandles, err := wrapper.api.NewKlinesService().Symbol(MarketNameFor(market, wrapper)).Interval(interval).Do(context.Background())
 		if err != nil {
 			return nil, err
 		}

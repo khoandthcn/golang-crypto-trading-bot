@@ -34,8 +34,8 @@ func (wrapper *ExchangeWrapperSimulator) Name() string {
 }
 
 // GetCandles gets the candle data from the exchange.
-func (wrapper *ExchangeWrapperSimulator) GetCandles(market *environment.Market) ([]environment.CandleStick, error) {
-	return wrapper.innerWrapper.GetCandles(market)
+func (wrapper *ExchangeWrapperSimulator) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
+	return wrapper.innerWrapper.GetCandles(market, interval)
 }
 
 // GetMarketSummary gets the current market summary.
