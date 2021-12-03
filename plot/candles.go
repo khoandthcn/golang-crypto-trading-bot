@@ -18,9 +18,11 @@ package plot
 //CandleStick represents a single candle in the graph.
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
+	"github.com/openacid/slim/polyfit"
 	"github.com/saniales/golang-crypto-trading-bot/environment"
 	"github.com/saniales/golang-crypto-trading-bot/optimize"
 	"github.com/shopspring/decimal"
@@ -44,7 +46,7 @@ type SupportPrice struct {
 }
 
 func (s SupportPrice) String() string {
-	return fmt.Sprintf("%s(%s)", s.Value, s.Weight)
+	return fmt.Sprintf("%s(%s)", s.Value.Round(2), s.Weight)
 }
 
 func (csc CandleStickChart) GetSupportPrices() []SupportPrice {
@@ -135,7 +137,9 @@ func (csc CandleStickChart) ExportPng(fileName string) error {
 	}
 
 	logrus.Info("Find trendline")
-	plotutil.AddLines(p, "Trend Line", csc.GetTrendLine())
+	plotutil.AddLines(p,
+		"Trend Line", csc.GetTrendLine(),
+		"Elliottt Wave", csc.GetElliottWaveModel())
 
 	logrus.Info("done")
 	err = p.Save(1024, 768, fileName)
@@ -164,6 +168,29 @@ func (csc CandleStickChart) GetTrendLine() plotter.XYs {
 		pts[i].Y = yPredict[i]
 	}
 
+	return pts
+}
+
+func (csc CandleStickChart) GetElliottWaveModel() plotter.XYs {
+	var xs, ys []float64
+	candle := csc.CandleSticks
+	xs = make([]float64, len(candle))
+	ys = make([]float64, len(candle))
+	for i := 0; i < len(candle); i++ {
+		xs[i] = float64(i)
+		ys[i], _ = candle[i].High.Float64()
+	}
+	polyfit := polyfit.NewFitting(xs, ys, 10)
+	elliottModel := polyfit.Solve(true)
+
+	pts := make(plotter.XYs, len(candle))
+	for i := 0; i < len(candle); i++ {
+		pts[i].X = float64(i)
+		pts[i].Y = elliottModel[0]
+		for j := 1; j < len(elliottModel); j++ {
+			pts[i].Y += elliottModel[j] * math.Pow(float64(i), float64(j))
+		}
+	}
 	return pts
 }
 

@@ -67,14 +67,14 @@ var Watch5Sec = strategies.IntervalStrategy{
 				if err != nil {
 					return err
 				}
-				// baseBalance, err := wr.GetBalance(mk.BaseCurrency)
-				// if err != nil {
-				// 	return err
-				// }
-				// marketBalance, err := wr.GetBalance(mk.MarketCurrency)
-				// if err != nil {
-				// 	return err
-				// }
+				baseBalance, err := wr.GetBalance(mk.BaseCurrency)
+				if err != nil {
+					return err
+				}
+				marketBalance, err := wr.GetBalance(mk.MarketCurrency)
+				if err != nil {
+					return err
+				}
 
 				candle, err := wr.GetCandles(mk, "4h")
 				if err != nil {
@@ -91,20 +91,24 @@ var Watch5Sec = strategies.IntervalStrategy{
 				supRange := support[0].Value.Sub(support[len(support)-1].Value)
 				if supRange.Equal(decimal.Zero) {
 					// find one support only
-					if mkSummary.Last.GreaterThan(support[0].Value) {
-						action = fmt.Sprintf("BUY at %s", support[0].Value)
-					} else if mkSummary.Last.LessThan(support[0].Value) {
-						action = fmt.Sprintf("SELL at %s", support[0].Value)
+					if mkSummary.Last.GreaterThan(support[0].Value) &&
+						marketBalance.GreaterThanOrEqual(decimal.NewFromInt(5)) {
+						action = fmt.Sprintf("BUY at %s", support[0])
+					} else if mkSummary.Last.LessThan(support[0].Value) &&
+						baseBalance.Mul(mkSummary.Last).GreaterThanOrEqual(decimal.NewFromInt(5)) {
+						action = fmt.Sprintf("SELL at %s", support[0])
 					} else {
 						action = "NOTHING"
 					}
 				} else {
 					position := mkSummary.Last.Sub(support[len(support)-1].Value).
 						Div(supRange)
-					if position.LessThanOrEqual(decimal.NewFromFloat(0.1)) {
-						action = fmt.Sprintf("BUY at %s", support[len(support)-1].Value)
-					} else if position.GreaterThanOrEqual(decimal.NewFromFloat(0.9)) {
-						action = fmt.Sprintf("SELL at %s", support[0].Value)
+					if position.LessThanOrEqual(decimal.NewFromFloat(0.1)) &&
+						marketBalance.GreaterThanOrEqual(decimal.NewFromInt(5)) {
+						action = fmt.Sprintf("BUY at %s", support[len(support)-1])
+					} else if position.GreaterThanOrEqual(decimal.NewFromFloat(0.9)) &&
+						baseBalance.Mul(mkSummary.Last).GreaterThanOrEqual(decimal.NewFromInt(5)) {
+						action = fmt.Sprintf("SELL at %s", support[0])
 					} else {
 						action = "NOTHING"
 					}
