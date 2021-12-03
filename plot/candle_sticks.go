@@ -75,8 +75,8 @@ func ElliottWaveModel(candle []environment.CandleStick) []float64 {
 // the given data.
 func NewCandlesticks(candles []environment.CandleStick) (*CandleSticks, error) {
 	elliottModel := ElliottWaveModel(candles)
-	ewave := make([]float64, len(candles)+50)
-	for i := 0; i < len(candles)+50; i++ {
+	ewave := make([]float64, len(candles))
+	for i := 0; i < len(candles); i++ {
 		ewave[i] = elliottModel[0]
 		for j := 1; j < len(elliottModel); j++ {
 			ewave[i] += elliottModel[j] * math.Pow(float64(i), float64(j))
@@ -147,7 +147,7 @@ func (sticks *CandleSticks) Plot(c draw.Canvas, plt *plot.Plot) {
 		c.StrokeLines(lineStyle, line...)
 	}
 
-	for i := len(sticks.candles); i < len(sticks.candles)+50; i++ {
+	for i := len(sticks.candles); i < len(sticks.candles); i++ {
 		xs := trX(float64(i))
 		ys := trY(sticks.elliottWave[i])
 		if i > 0 {
@@ -177,7 +177,6 @@ func (sticks *CandleSticks) DataRange() (xMin, xMax, yMin, yMax float64) {
 		yMax = math.Max(yMax, high)
 	}
 
-	xMax += 50
 	return
 }
 

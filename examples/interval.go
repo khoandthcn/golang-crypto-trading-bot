@@ -23,11 +23,14 @@ import (
 	bot "github.com/saniales/golang-crypto-trading-bot/cmd"
 	"github.com/saniales/golang-crypto-trading-bot/environment"
 	"github.com/saniales/golang-crypto-trading-bot/exchanges"
+	"github.com/saniales/golang-crypto-trading-bot/optimize"
 	"github.com/saniales/golang-crypto-trading-bot/plot"
 	"github.com/saniales/golang-crypto-trading-bot/strategies"
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 	pl "gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/plotutil"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
@@ -116,12 +119,20 @@ var Watch5Sec = strategies.IntervalStrategy{
 						if err != nil {
 							logrus.Warning("Failed to send message: " + msg.Text)
 						}
+
+						exportPng(candle, support, fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
+
+						p := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))}
+						_, err = telegramBot.Send(chatGroup, p)
+						if err != nil {
+							logrus.Warning("Failed to upload photo.")
+						}
+
 					}
 				}
 
 				// elliottModel := ElliottWaveModel(candle[0:100])
 				// logrus.Infof("Elliott Wave params: %s", elliottModel)
-				// exportPng(candle[len(candle)-101:len(candle)-1], fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
 				// lastCandle := candle[len(candle)-1]
 				// logrus.Infof("Last stick: Open: %s, High: %s, Low: %s, Close: %s, Vol: %s",
 				// lastCandle.Open, lastCandle.High, lastCandle.Low, lastCandle.Close, lastCandle.Volume)
@@ -210,7 +221,7 @@ func findSupportPoint(candle []environment.CandleStick, last decimal.Decimal) []
 	return supportPoint[startIdx : endIdx+1]
 }
 
-func exportPng(candle []environment.CandleStick, fileName string) error {
+func exportPng(candle []environment.CandleStick, support []SupportPoint, fileName string) error {
 	candleSticks, err := plot.NewCandlesticks(candle)
 	if err != nil {
 		return err
@@ -219,13 +230,57 @@ func exportPng(candle []environment.CandleStick, fileName string) error {
 	p.Title.Text = "Candlesticks"
 	p.X.Label.Text = "Time"
 	p.Y.Label.Text = "Price"
-	p.X.Tick.Marker = pl.TimeTicks{Format: "2006-01-02\n15:04:05"}
+	// p.X.Tick.Marker = pl.TimeTicks{Format: "2006-01-02\n15:04:05"}
 
 	p.Add(candleSticks)
 
-	err = p.Save(450, 200, fileName)
+	for i := 0; i < len(support); i++ {
+		if support[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
+			value, _ := support[i].Value.Float64()
+			err = plotutil.AddLines(p, fmt.Sprintf("S(%s)", support[i].Weight), HorizontalLine(len(candle), value))
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	logrus.Info("Find trendline")
+	plotutil.AddLines(p, "Trend Line", TrendLine(candle))
+
+	logrus.Info("done")
+	err = p.Save(1024, 768, fileName)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func TrendLine(candle []environment.CandleStick) plotter.XYs {
+	xTrain := make([]float64, len(candle))
+	yTrain := make([]float64, len(candle))
+	for i := 0; i < len(candle); i++ {
+		xTrain[i] = float64(i)
+		yTrain[i], _ = candle[i].High.Float64()
+	}
+	// Fit
+	lr := optimize.LinearRegression{NIter: 100, Method: "gd"}
+	lr.Fit(xTrain, yTrain)
+	logrus.Printf("Trendline %s", lr.Weights)
+	yPredict := lr.Predict(xTrain)
+	pts := make(plotter.XYs, len(candle))
+	for i := 0; i < len(candle); i++ {
+		pts[i].X = xTrain[i]
+		pts[i].Y = yPredict[i]
+	}
+
+	return pts
+}
+
+func HorizontalLine(n int, h float64) plotter.XYs {
+	pts := make(plotter.XYs, n)
+	for i := range pts {
+		pts[i].X = float64(i)
+		pts[i].Y = h
+	}
+	return pts
 }
