@@ -27,6 +27,7 @@ import (
 	"github.com/saniales/golang-crypto-trading-bot/optimize"
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
+	"gonum.org/v1/plot"
 	pl "gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"
@@ -125,7 +126,9 @@ func (csc CandleStickChart) ExportPng(fileName string) error {
 
 	p.Add(candleSticks)
 
+	// Draw support/resistance prices
 	support := csc.GetSupportPrices()
+	ticks := []plot.Tick{}
 	for i := 0; i < len(support); i++ {
 		if support[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
 			value, _ := support[i].Value.Float64()
@@ -133,8 +136,11 @@ func (csc CandleStickChart) ExportPng(fileName string) error {
 			if err != nil {
 				panic(err)
 			}
+			ticks = append(ticks, plot.Tick{Value: value, Label: support[i].Value.Round(2).String()})
 		}
 	}
+
+	p.Y.Tick.Marker = plot.ConstantTicks(ticks)
 
 	logrus.Info("Find trendline")
 	plotutil.AddLines(p,

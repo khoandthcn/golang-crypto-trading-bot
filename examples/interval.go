@@ -134,6 +134,8 @@ var Watch5Sec = strategies.IntervalStrategy{
 						}
 
 					}
+				} else {
+					candleChart.ExportPng(fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
 				}
 
 				// elliottModel := ElliottWaveModel(candle[0:100])
