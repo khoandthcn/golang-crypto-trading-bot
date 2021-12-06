@@ -26,7 +26,6 @@ import (
 	"github.com/saniales/golang-crypto-trading-bot/environment"
 	"github.com/saniales/golang-crypto-trading-bot/optimize"
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 	pl "gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"
@@ -64,47 +63,54 @@ type CriticalPoint struct {
 
 func (csc CandleStickChart) GetCriticalPoints() []CriticalPoint {
 	candle := csc.CandleSticks
-	dh := make([]decimal.Decimal, len(candle))
-	dl := make([]decimal.Decimal, len(candle))
-	for i := 1; i < len(dh); i++ {
-		dh[i] = candle[i].High.Sub(candle[i-1].High)
-		dl[i] = candle[i].Low.Sub(candle[i-1].Low)
+	n := len(candle)
+	// 0: average high
+	// d2 = (a3)/3 - (a0)/3
+	a := make([][2]decimal.Decimal, n)
+	for i := 0; i < n; i++ {
+		i1 := i - 1 // i-2
+		if i1 < 0 {
+			i1 = 0
+		}
+		i2 := i // i+1
+		if i2 >= n {
+			i2 = n - 1
+		}
+
+		a[i][0] = candle[i2].High.Sub(candle[i1].High)
+		a[i][1] = candle[i2].Low.Sub(candle[i1].Low)
 	}
 	var criticalPoint []CriticalPoint
-	for i := 1; i < len(dh)-1; i++ {
-		if dh[i].IsNegative() && dh[i+1].IsPositive() {
+	for i := 0; i < n-1; i++ {
+		if a[i][0].IsNegative() && a[i+1][0].IsPositive() {
 			// local maximal
 			criticalPoint = append(criticalPoint, CriticalPoint{
 				X:    decimal.NewFromInt(int64(i)),
 				Y:    candle[i].High,
 				Type: MAXIMAL,
 			})
-			// decimal.Max(candle[i].Open, candle[i].Close))
-		} else if dh[i].IsPositive() && dh[i+1].IsNegative() {
+		} else if a[i][0].IsPositive() && a[i+1][0].IsNegative() {
 			// local minimal
 			criticalPoint = append(criticalPoint, CriticalPoint{
 				X:    decimal.NewFromInt(int64(i)),
 				Y:    candle[i].High,
 				Type: MINIMAL,
 			})
-			// decimal.Max(candle[i].Open, candle[i].Close))
 		}
-		if dl[i].IsNegative() && dl[i+1].IsPositive() {
+		if a[i][1].IsNegative() && a[i+1][1].IsPositive() {
 			// local maximal
 			criticalPoint = append(criticalPoint, CriticalPoint{
 				X:    decimal.NewFromInt(int64(i)),
 				Y:    candle[i].Low,
 				Type: MAXIMAL,
 			})
-			// decimal.Max(candle[i].Open, candle[i].Close))
-		} else if dl[i].IsPositive() && dl[i+1].IsNegative() {
+		} else if a[i][1].IsPositive() && a[i+1][1].IsNegative() {
 			// local minimal
 			criticalPoint = append(criticalPoint, CriticalPoint{
 				X:    decimal.NewFromInt(int64(i)),
 				Y:    candle[i].Low,
 				Type: MINIMAL,
 			})
-			// decimal.Max(candle[i].Open, candle[i].Close))
 		}
 	}
 	return criticalPoint
@@ -172,12 +178,19 @@ func (csc CandleStickChart) ExportPng(fileName string) error {
 		}
 	}
 
-	logrus.Info("Find trendline")
+	// Draw criticals points
+	// criticals := csc.GetCriticalPoints()
+	// cpts := make(plotter.XYs, len(criticals))
+	// for i, c := range criticals {
+	// 	cpts[i].X, _ = c.X.Float64()
+	// 	cpts[i].Y, _ = c.Y.Float64()
+	// }
+	// plotutil.AddLinePoints(p, cpts)
+
 	plotutil.AddLines(p,
 		"Trend Line", csc.GetTrendLine(),
 		"Elliottt Wave", csc.GetElliottWaveModel())
 
-	logrus.Info("done")
 	err = p.Save(1024, 768, fileName)
 	if err != nil {
 		return err
