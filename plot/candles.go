@@ -40,6 +40,13 @@ type CandleStickChart struct {
 	OrderBook    []environment.Order       //Represents the Book of current trades.
 }
 
+type CriticalType int
+
+const (
+	MAXIMAL CriticalType = iota
+	MINIMAL
+)
+
 type SupportPrice struct {
 	Value  decimal.Decimal
 	Weight decimal.Decimal
@@ -49,53 +56,79 @@ func (s SupportPrice) String() string {
 	return fmt.Sprintf("%s(%s)", s.Value.Round(2), s.Weight)
 }
 
-func (csc CandleStickChart) GetSupportPrices() []SupportPrice {
+type CriticalPoint struct {
+	X    decimal.Decimal
+	Y    decimal.Decimal
+	Type CriticalType
+}
+
+func (csc CandleStickChart) GetCriticalPoints() []CriticalPoint {
 	candle := csc.CandleSticks
 	dh := make([]decimal.Decimal, len(candle))
 	dl := make([]decimal.Decimal, len(candle))
-	threshold := 0.02
 	for i := 1; i < len(dh); i++ {
 		dh[i] = candle[i].High.Sub(candle[i-1].High)
 		dl[i] = candle[i].Low.Sub(candle[i-1].Low)
 	}
-	var criticalPoint []decimal.Decimal
+	var criticalPoint []CriticalPoint
 	for i := 1; i < len(dh)-1; i++ {
 		if dh[i].IsNegative() && dh[i+1].IsPositive() {
 			// local maximal
-			criticalPoint = append(criticalPoint, candle[i].High)
+			criticalPoint = append(criticalPoint, CriticalPoint{
+				X:    decimal.NewFromInt(int64(i)),
+				Y:    candle[i].High,
+				Type: MAXIMAL,
+			})
 			// decimal.Max(candle[i].Open, candle[i].Close))
 		} else if dh[i].IsPositive() && dh[i+1].IsNegative() {
 			// local minimal
-			criticalPoint = append(criticalPoint, candle[i].High)
+			criticalPoint = append(criticalPoint, CriticalPoint{
+				X:    decimal.NewFromInt(int64(i)),
+				Y:    candle[i].High,
+				Type: MINIMAL,
+			})
 			// decimal.Max(candle[i].Open, candle[i].Close))
 		}
 		if dl[i].IsNegative() && dl[i+1].IsPositive() {
 			// local maximal
-			criticalPoint = append(criticalPoint, candle[i].Low)
+			criticalPoint = append(criticalPoint, CriticalPoint{
+				X:    decimal.NewFromInt(int64(i)),
+				Y:    candle[i].Low,
+				Type: MAXIMAL,
+			})
 			// decimal.Max(candle[i].Open, candle[i].Close))
 		} else if dl[i].IsPositive() && dl[i+1].IsNegative() {
 			// local minimal
-			criticalPoint = append(criticalPoint, candle[i].Low)
+			criticalPoint = append(criticalPoint, CriticalPoint{
+				X:    decimal.NewFromInt(int64(i)),
+				Y:    candle[i].Low,
+				Type: MINIMAL,
+			})
 			// decimal.Max(candle[i].Open, candle[i].Close))
 		}
 	}
+	return criticalPoint
+}
+
+func (csc CandleStickChart) GetSupportPrices() []SupportPrice {
+	threshold := 0.02
+	criticalPoint := csc.GetCriticalPoints()
 	sort.Slice(criticalPoint, func(i, j int) bool {
-		return criticalPoint[i].GreaterThan(criticalPoint[j])
+		return criticalPoint[i].Y.GreaterThan(criticalPoint[j].Y)
 	})
 	supportPoint := []SupportPrice{}
-	sum := criticalPoint[0]
+	sum := criticalPoint[0].Y
 	count := decimal.NewFromInt(1)
 	for i := 1; i < len(criticalPoint); i++ {
-		if sum.Div(count).Sub(criticalPoint[i]).Div(sum.Div(count)).LessThanOrEqual(decimal.NewFromFloat(threshold)) {
-			sum = sum.Add(criticalPoint[i])
+		if sum.Div(count).Sub(criticalPoint[i].Y).Div(sum.Div(count)).LessThanOrEqual(decimal.NewFromFloat(threshold)) {
+			sum = sum.Add(criticalPoint[i].Y)
 			count = count.Add(decimal.NewFromInt(1))
 		} else {
 			supportPoint = append(supportPoint, SupportPrice{Value: sum.Div(count), Weight: count})
-			sum = criticalPoint[i]
+			sum = criticalPoint[i].Y
 			count = decimal.NewFromInt(1)
 		}
 	}
-	logrus.Infof("Support: %s", supportPoint)
 	startIdx := 0
 	endIdx := 0
 	for i := 0; i < len(supportPoint); i++ {
@@ -108,6 +141,9 @@ func (csc CandleStickChart) GetSupportPrices() []SupportPrice {
 			endIdx = i
 			break
 		}
+	}
+	if endIdx == 0 {
+		endIdx = len(supportPoint) - 1
 	}
 	return supportPoint[startIdx : endIdx+1]
 }
@@ -160,7 +196,6 @@ func (csc CandleStickChart) GetTrendLine() plotter.XYs {
 	// Fit
 	lr := optimize.LinearRegression{NIter: 100, Method: "gd"}
 	lr.Fit(xTrain, yTrain)
-	logrus.Printf("Trendline %s", lr.Weights)
 	yPredict := lr.Predict(xTrain)
 	pts := make(plotter.XYs, len(candle))
 	for i := 0; i < len(candle); i++ {

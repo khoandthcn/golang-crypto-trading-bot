@@ -33,6 +33,10 @@ func (wrapper *ExchangeWrapperSimulator) Name() string {
 	return fmt.Sprint(wrapper.innerWrapper.Name(), "mock")
 }
 
+func (wrapper *ExchangeWrapperSimulator) GetMarkets() ([]*environment.Market, error) {
+	return wrapper.GetMarkets()
+}
+
 // GetCandles gets the candle data from the exchange.
 func (wrapper *ExchangeWrapperSimulator) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	return wrapper.innerWrapper.GetCandles(market, interval)

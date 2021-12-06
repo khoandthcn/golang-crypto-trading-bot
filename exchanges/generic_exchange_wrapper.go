@@ -34,7 +34,8 @@ const (
 
 //ExchangeWrapper provides a generic wrapper for exchange services.
 type ExchangeWrapper interface {
-	Name() string                                                                              // Gets the name of the exchange.
+	Name() string
+	GetMarkets() ([]*environment.Market, error)                                                // Gets the name of the exchange.
 	GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) // Gets the candle data from the exchange.
 	GetMarketSummary(market *environment.Market) (*environment.MarketSummary, error)           // Gets the current market summary.
 	GetOrderBook(market *environment.Market) (*environment.OrderBook, error)                   // Gets the order(ASK + BID) book of a market.
