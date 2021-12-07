@@ -78,6 +78,10 @@ func (wrapper *KucoinWrapper) GetMarkets() ([]*environment.Market, error) {
 	return wrappedMarkets, nil
 }
 
+func (wrapper *KucoinWrapper) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
+	panic("Not Implemented")
+}
+
 // GetOrderBook gets the order(ASK + BID) book of a market.
 func (wrapper *KucoinWrapper) GetOrderBook(market *environment.Market) (*environment.OrderBook, error) {
 	ret, exists := wrapper.orderbook.Get(market)

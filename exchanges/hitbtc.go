@@ -80,6 +80,10 @@ func (wrapper *HitBtcWrapperV2) GetMarkets() ([]*environment.Market, error) {
 	return wrappedMarkets, nil
 }
 
+func (wrapper *HitBtcWrapperV2) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
+	panic("Not Implemented")
+}
+
 // GetOrderBook gets the order(ASK + BID) book of a market.
 func (wrapper *HitBtcWrapperV2) GetOrderBook(market *environment.Market) (*environment.OrderBook, error) {
 	ret, exists := wrapper.orderbook.Get(market)

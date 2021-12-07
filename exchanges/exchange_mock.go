@@ -37,6 +37,10 @@ func (wrapper *ExchangeWrapperSimulator) GetMarkets() ([]*environment.Market, er
 	return wrapper.GetMarkets()
 }
 
+func (wrapper *ExchangeWrapperSimulator) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
+	return wrapper.GetListPriceChangeStats()
+}
+
 // GetCandles gets the candle data from the exchange.
 func (wrapper *ExchangeWrapperSimulator) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	return wrapper.innerWrapper.GetCandles(market, interval)

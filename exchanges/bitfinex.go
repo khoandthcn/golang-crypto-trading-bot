@@ -64,6 +64,10 @@ func (wrapper *BitfinexWrapper) GetMarkets() ([]*environment.Market, error) {
 	return wrappedMarkets, nil
 }
 
+func (wrapper *BitfinexWrapper) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
+	panic("Not Implemented")
+}
+
 // GetOrderBook gets the order(ASK + BID) book of a market.
 func (wrapper *BitfinexWrapper) GetOrderBook(market *environment.Market) (*environment.OrderBook, error) {
 	if !wrapper.websocketOn {

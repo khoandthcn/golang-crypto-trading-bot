@@ -39,6 +39,7 @@ type ExchangeWrapper interface {
 	GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) // Gets the candle data from the exchange.
 	GetMarketSummary(market *environment.Market) (*environment.MarketSummary, error)           // Gets the current market summary.
 	GetOrderBook(market *environment.Market) (*environment.OrderBook, error)                   // Gets the order(ASK + BID) book of a market.
+	GetListPriceChangeStats() (environment.ListPriceChangeStats, error)                        // Gets the list of price change
 
 	BuyLimit(market *environment.Market, amount float64, limit float64) (string, error)  // Performs a limit buy action.
 	SellLimit(market *environment.Market, amount float64, limit float64) (string, error) // Performs a limit sell action.

@@ -69,6 +69,10 @@ func (wrapper *BittrexWrapperV2) GetMarkets() ([]*environment.Market, error) {
 	return wrappedMarkets, nil
 }
 
+func (wrapper *BittrexWrapperV2) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
+	panic("Not Implemented")
+}
+
 // GetOrderBook gets the order(ASK + BID) book of a market.
 func (wrapper *BittrexWrapperV2) GetOrderBook(market *environment.Market) (*environment.OrderBook, error) {
 	panic("GetOrderBook not implemented")

@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/adshao/go-binance/v2"
 	"github.com/saniales/golang-crypto-trading-bot/environment"
@@ -77,19 +76,33 @@ func (wrapper *BinanceWrapper) GetMarkets() ([]*environment.Market, error) {
 		}
 	}
 
+	return ret, nil
+}
+
+func (wrapper *BinanceWrapper) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
 	listPriceChange, err := wrapper.api.NewListPriceChangeStatsService().Do(context.Background())
 	if err != nil {
 		return nil, err
 	}
-
-	for _, pc := range listPriceChange {
+	ret := make(environment.ListPriceChangeStats, len(listPriceChange))
+	for i, pc := range listPriceChange {
+		lastPrice, err := decimal.NewFromString(pc.LastPrice)
+		if err != nil {
+			return nil, err
+		}
+		priceChange, err := decimal.NewFromString(pc.PriceChange)
+		if err != nil {
+			return nil, err
+		}
 		priceChangePercent, err := decimal.NewFromString(pc.PriceChangePercent)
 		if err != nil {
 			return nil, err
 		}
-		if strings.HasSuffix(pc.Symbol, "BUSD") &&
-			priceChangePercent.GreaterThanOrEqual(decimal.NewFromInt(10)) {
-			logrus.Infof("Symbol %s change %s", pc.Symbol, priceChangePercent)
+		ret[i] = environment.PriceChangeStat{
+			Symbol:             pc.Symbol,
+			PriceChange:        priceChange,
+			PriceChangePercent: priceChangePercent,
+			LastPrice:          lastPrice,
 		}
 	}
 

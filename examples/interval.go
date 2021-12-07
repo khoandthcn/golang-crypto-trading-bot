@@ -63,7 +63,6 @@ var Watch5Sec = strategies.IntervalStrategy{
 		OnUpdate: func(wrappers []exchanges.ExchangeWrapper, markets []*environment.Market) error {
 			for i, mk := range markets {
 				wr := wrappers[0]
-				wr.GetMarkets()
 				mkSummary, err := wr.GetMarketSummary(markets[i])
 				if err != nil {
 					return err
@@ -137,6 +136,20 @@ var Watch5Sec = strategies.IntervalStrategy{
 					}
 				} else {
 					candleChart.ExportPng(fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
+				}
+
+				// Try to find another oportunity
+				prChange, err := wr.GetListPriceChangeStats()
+				if err != nil {
+					return err
+				}
+				logrus.Info("Top Gainers:")
+				for _, pc := range prChange.GetTopGainers(10) {
+					logrus.Infof("Symbol %s price %s change %s percent", pc.Symbol, pc.LastPrice, pc.PriceChangePercent)
+				}
+				logrus.Info("Top Losers:")
+				for _, pc := range prChange.GetTopLosers(10) {
+					logrus.Infof("Symbol %s price %s change %s percent", pc.Symbol, pc.LastPrice, pc.PriceChangePercent)
 				}
 			}
 			return nil

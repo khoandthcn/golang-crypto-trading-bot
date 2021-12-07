@@ -81,6 +81,10 @@ func (wrapper *KrakenWrapper) GetMarkets() ([]*environment.Market, error) {
 	return wrappedMarkets, nil
 }
 
+func (wrapper *KrakenWrapper) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
+	panic("Not Implemented")
+}
+
 // GetOrderBook gets the order(ASK + BID) book of a market.
 func (wrapper *KrakenWrapper) GetOrderBook(market *environment.Market) (*environment.OrderBook, error) {
 	krakenOrderBook, err := wrapper.api.Depth(MarketNameFor(market, wrapper), 0)

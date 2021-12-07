@@ -77,6 +77,10 @@ func (wrapper *PoloniexWrapper) GetMarkets() ([]*environment.Market, error) {
 	return wrappedMarkets, nil
 }
 
+func (wrapper *PoloniexWrapper) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
+	panic("Not Implemented")
+}
+
 // GetCandles gets the candle data from the exchange.
 func (wrapper *PoloniexWrapper) GetCandles(market *environment.Market, interval string) ([]environment.CandleStick, error) {
 	if !wrapper.websocketOn {

@@ -17,6 +17,7 @@ package environment
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/shopspring/decimal"
@@ -67,4 +68,27 @@ func (ms *MarketSummary) UpdateFromTicker(ticker Ticker) {
 	ms.Ask = ticker.Ask
 	ms.Bid = ticker.Bid
 	ms.Last = ticker.Last
+}
+
+type PriceChangeStat struct {
+	Symbol             string
+	PriceChange        decimal.Decimal
+	PriceChangePercent decimal.Decimal
+	LastPrice          decimal.Decimal
+}
+
+type ListPriceChangeStats []PriceChangeStat
+
+func (lpc ListPriceChangeStats) GetTopGainers(n int) ListPriceChangeStats {
+	sort.Slice(lpc, func(i, j int) bool {
+		return lpc[i].PriceChangePercent.GreaterThan(lpc[j].PriceChangePercent)
+	})
+	return lpc[0:n]
+}
+
+func (lpc ListPriceChangeStats) GetTopLosers(n int) ListPriceChangeStats {
+	sort.Slice(lpc, func(i, j int) bool {
+		return lpc[i].PriceChangePercent.LessThan(lpc[j].PriceChangePercent)
+	})
+	return lpc[0:n]
 }
