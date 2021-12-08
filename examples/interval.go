@@ -61,8 +61,8 @@ var Watch5Sec = strategies.IntervalStrategy{
 			return nil
 		},
 		OnUpdate: func(wrappers []exchanges.ExchangeWrapper, markets []*environment.Market) error {
+			wr := wrappers[0]
 			for i, mk := range markets {
-				wr := wrappers[0]
 				mkSummary, err := wr.GetMarketSummary(markets[i])
 				if err != nil {
 					return err
@@ -76,13 +76,13 @@ var Watch5Sec = strategies.IntervalStrategy{
 					return err
 				}
 
-				candle, err := wr.GetCandles(mk, "4h")
+				candle, err := wr.GetCandles(mk, "1d")
 				if err != nil {
 					return err
 				}
 				candleChart := plot.CandleStickChart{
 					CurrentPrice: mkSummary.Last,
-					CandlePeriod: time.Hour * 4,
+					CandlePeriod: time.Hour * 24,
 					CandleSticks: candle,
 					OrderBook:    nil,
 				}
@@ -137,20 +137,30 @@ var Watch5Sec = strategies.IntervalStrategy{
 				} else {
 					candleChart.ExportPng(fmt.Sprintf("%s%s_candlesticks.png", mk.BaseCurrency, mk.MarketCurrency))
 				}
+			}
 
-				// Try to find another oportunity
-				prChange, err := wr.GetListPriceChangeStats()
+			// Try to find another oportunity
+			prChange, err := wr.GetListPriceChangeStats()
+			if err != nil {
+				return err
+			}
+			logrus.Info("Top Gainers:")
+			for _, pc := range prChange.GetTopGainersByMarket(10, "BUSD") {
+				action, err := EvaluateSymbol(wr, pc, "4h")
 				if err != nil {
-					return err
+					return nil
 				}
-				logrus.Info("Top Gainers:")
-				for _, pc := range prChange.GetTopGainers(10) {
-					logrus.Infof("Symbol %s price %s change %s percent", pc.Symbol, pc.LastPrice, pc.PriceChangePercent)
+				logrus.Infof("Symbol %s-%s price %s change %s%%", pc.Market.BaseCurrency, pc.Market.MarketCurrency, pc.LastPrice, pc.PriceChangePercent)
+				logrus.Info(action)
+			}
+			logrus.Info("Top Losers:")
+			for _, pc := range prChange.GetTopLosersByMarket(10, "BUSD") {
+				action, err := EvaluateSymbol(wr, pc, "4h")
+				if err != nil {
+					return nil
 				}
-				logrus.Info("Top Losers:")
-				for _, pc := range prChange.GetTopLosers(10) {
-					logrus.Infof("Symbol %s price %s change %s percent", pc.Symbol, pc.LastPrice, pc.PriceChangePercent)
-				}
+				logrus.Infof("Symbol %s-%s price %s change %s%%", pc.Market.BaseCurrency, pc.Market.MarketCurrency, pc.LastPrice, pc.PriceChangePercent)
+				logrus.Info(action)
 			}
 			return nil
 		},
@@ -163,4 +173,41 @@ var Watch5Sec = strategies.IntervalStrategy{
 		},
 	},
 	Interval: time.Minute * 1,
+}
+
+func EvaluateSymbol(wr exchanges.ExchangeWrapper, symbol environment.PriceChangeStat, interval string) (string, error) {
+	action := "NOTHING"
+	candle, err := wr.GetCandles(&symbol.Market, interval)
+	if err != nil {
+		return action, err
+	}
+	candleChart := plot.CandleStickChart{
+		CurrentPrice: symbol.LastPrice,
+		CandlePeriod: time.Hour * 4,
+		CandleSticks: candle,
+		OrderBook:    nil,
+	}
+	support := candleChart.GetSupportPrices()
+	supRange := support[0].Value.Sub(support[len(support)-1].Value)
+	if supRange.Equal(decimal.Zero) {
+		// find one support only
+		if symbol.LastPrice.GreaterThan(support[0].Value) {
+			action = fmt.Sprintf("BUY at %s", support[0])
+		} else if symbol.LastPrice.LessThan(support[0].Value) {
+			action = fmt.Sprintf("SELL at %s", support[0])
+		} else {
+			action = "NOTHING"
+		}
+	} else {
+		position := symbol.LastPrice.Sub(support[len(support)-1].Value).Div(supRange)
+		if position.LessThanOrEqual(decimal.NewFromFloat(0.1)) {
+			action = fmt.Sprintf("BUY at %s", support[len(support)-1])
+		} else if position.GreaterThanOrEqual(decimal.NewFromFloat(0.9)) {
+			action = fmt.Sprintf("SELL at %s", support[0])
+		} else {
+			action = "NOTHING"
+		}
+	}
+	return fmt.Sprintf("Market %s-%s: last=%s, Supp=%s\n\tRecommended: %s",
+		symbol.Market.BaseCurrency, symbol.Market.MarketCurrency, symbol.LastPrice, support, action), nil
 }

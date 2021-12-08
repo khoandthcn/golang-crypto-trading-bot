@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/adshao/go-binance/v2"
 	"github.com/saniales/golang-crypto-trading-bot/environment"
@@ -79,6 +80,23 @@ func (wrapper *BinanceWrapper) GetMarkets() ([]*environment.Market, error) {
 	return ret, nil
 }
 
+func getCurrencyMap(symbol string) (paramsMap map[string]string) {
+
+	var compRegEx = regexp.MustCompile(`^(?P<BaseCurrency>.*)(?P<MarketCurrency>BUSD|USDT|BTC|BNB|ETH|DOGE|SHIB)$`)
+	match := compRegEx.FindStringSubmatch(symbol)
+
+	paramsMap = make(map[string]string)
+	for i, name := range compRegEx.SubexpNames() {
+		if i > 0 && i <= len(match) {
+			paramsMap[name] = match[i]
+		}
+	}
+	// if len(paramsMap) == 0 {
+	// 	logrus.Warnf("Failed to parse symbol %s", symbol)
+	// }
+	return paramsMap
+}
+
 func (wrapper *BinanceWrapper) GetListPriceChangeStats() (environment.ListPriceChangeStats, error) {
 	listPriceChange, err := wrapper.api.NewListPriceChangeStatsService().Do(context.Background())
 	if err != nil {
@@ -98,11 +116,18 @@ func (wrapper *BinanceWrapper) GetListPriceChangeStats() (environment.ListPriceC
 		if err != nil {
 			return nil, err
 		}
+		currencyMap := getCurrencyMap(pc.Symbol)
 		ret[i] = environment.PriceChangeStat{
 			Symbol:             pc.Symbol,
 			PriceChange:        priceChange,
 			PriceChangePercent: priceChangePercent,
 			LastPrice:          lastPrice,
+			Market: environment.Market{
+				Name:           pc.Symbol,
+				BaseCurrency:   currencyMap["BaseCurrency"],
+				MarketCurrency: currencyMap["MarketCurrency"],
+				ExchangeNames:  map[string]string{wrapper.Name(): pc.Symbol},
+			},
 		}
 	}
 

@@ -46,6 +46,15 @@ const (
 	MINIMAL
 )
 
+type ChartType int
+
+const (
+	CANDLE_STICK ChartType = iota
+	SUPPORT_RESISTANCE
+	ElliottWaveModel_WAVE
+	CRICTICAL_POINT
+)
+
 type SupportPrice struct {
 	Value  decimal.Decimal
 	Weight decimal.Decimal
@@ -155,15 +164,16 @@ func (csc CandleStickChart) GetSupportPrices() []SupportPrice {
 }
 
 func (csc CandleStickChart) ExportPng(fileName string) error {
-	candleSticks, err := NewCandlesticks(csc.CandleSticks)
-	if err != nil {
-		return err
-	}
 	p := pl.New()
 	p.Title.Text = "Candlesticks"
 	p.X.Label.Text = "Time"
 	p.Y.Label.Text = "Price"
 	// p.X.Tick.Marker = pl.TimeTicks{Format: "2006-01-02\n15:04:05"}
+	// p.Add(candleSticks)
+	candleSticks, err := NewCandlesticks(csc.CandleSticks)
+	if err != nil {
+		return err
+	}
 
 	p.Add(candleSticks)
 
@@ -191,6 +201,14 @@ func (csc CandleStickChart) ExportPng(fileName string) error {
 	// 	cpts[i].Y, _ = c.Y.Float64()
 	// }
 	// plotutil.AddLinePoints(p, cpts)
+
+	// Draw midle line
+	mpts := make(plotter.XYs, len(csc.CandleSticks))
+	for i := 0; i < len(csc.CandleSticks); i++ {
+		mpts[i].X = float64(i)
+		mpts[i].Y, _ = decimal.Avg(csc.CandleSticks[i].Open, csc.CandleSticks[i].Close).Float64()
+	}
+	plotutil.AddLinePoints(p, mpts)
 
 	plotutil.AddLines(p,
 		"Trend Line", csc.GetTrendLine(),

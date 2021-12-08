@@ -75,20 +75,35 @@ type PriceChangeStat struct {
 	PriceChange        decimal.Decimal
 	PriceChangePercent decimal.Decimal
 	LastPrice          decimal.Decimal
+	Market             Market
 }
 
 type ListPriceChangeStats []PriceChangeStat
 
 func (lpc ListPriceChangeStats) GetTopGainers(n int) ListPriceChangeStats {
 	sort.Slice(lpc, func(i, j int) bool {
-		return lpc[i].PriceChangePercent.GreaterThan(lpc[j].PriceChangePercent)
+		return lpc[i].PriceChangePercent.GreaterThan(lpc[j].PriceChangePercent) && lpc[i].Market.MarketCurrency != ""
+	})
+	return lpc[0:n]
+}
+
+func (lpc ListPriceChangeStats) GetTopGainersByMarket(n int, marketCurrency string) ListPriceChangeStats {
+	sort.Slice(lpc, func(i, j int) bool {
+		return lpc[i].PriceChangePercent.GreaterThan(lpc[j].PriceChangePercent) && lpc[i].Market.MarketCurrency == marketCurrency
 	})
 	return lpc[0:n]
 }
 
 func (lpc ListPriceChangeStats) GetTopLosers(n int) ListPriceChangeStats {
 	sort.Slice(lpc, func(i, j int) bool {
-		return lpc[i].PriceChangePercent.LessThan(lpc[j].PriceChangePercent)
+		return lpc[i].PriceChangePercent.LessThan(lpc[j].PriceChangePercent) && lpc[i].Market.MarketCurrency != ""
+	})
+	return lpc[0:n]
+}
+
+func (lpc ListPriceChangeStats) GetTopLosersByMarket(n int, marketCurrency string) ListPriceChangeStats {
+	sort.Slice(lpc, func(i, j int) bool {
+		return lpc[i].PriceChangePercent.LessThan(lpc[j].PriceChangePercent) && lpc[i].Market.MarketCurrency == marketCurrency
 	})
 	return lpc[0:n]
 }
