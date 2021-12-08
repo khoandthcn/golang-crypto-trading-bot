@@ -116,12 +116,27 @@ func (wrapper *BinanceWrapper) GetListPriceChangeStats() (environment.ListPriceC
 		if err != nil {
 			return nil, err
 		}
+		weightedAvgPrice, err := decimal.NewFromString(pc.WeightedAvgPrice)
+		if err != nil {
+			return nil, err
+		}
+		volume, err := decimal.NewFromString(pc.Volume)
+		if err != nil {
+			return nil, err
+		}
+		quoteVolume, err := decimal.NewFromString(pc.QuoteVolume)
+		if err != nil {
+			return nil, err
+		}
 		currencyMap := getCurrencyMap(pc.Symbol)
 		ret[i] = environment.PriceChangeStat{
 			Symbol:             pc.Symbol,
 			PriceChange:        priceChange,
 			PriceChangePercent: priceChangePercent,
 			LastPrice:          lastPrice,
+			WeightedAvgPrice:   weightedAvgPrice,
+			Volume:             volume,
+			QuoteVolume:        quoteVolume,
 			Market: environment.Market{
 				Name:           pc.Symbol,
 				BaseCurrency:   currencyMap["BaseCurrency"],

@@ -18,7 +18,6 @@ package environment
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/shopspring/decimal"
 )
@@ -40,8 +39,7 @@ type Market struct {
 }
 
 func (m Market) String() string {
-	ret := fmt.Sprintln("Market", m.Name)
-	return strings.TrimSpace(ret)
+	return fmt.Sprintf("%s-%s", m.BaseCurrency, m.MarketCurrency)
 }
 
 //MarketSummary represents the summary data of a market.
@@ -75,7 +73,16 @@ type PriceChangeStat struct {
 	PriceChange        decimal.Decimal
 	PriceChangePercent decimal.Decimal
 	LastPrice          decimal.Decimal
+	WeightedAvgPrice   decimal.Decimal
+	Volume             decimal.Decimal
+	QuoteVolume        decimal.Decimal
 	Market             Market
+}
+
+func (pc PriceChangeStat) String() string {
+	return fmt.Sprintf("%s: Last=%s, change=%s%%, avgPrice=%s, volume=%s$",
+		pc.Market, pc.LastPrice, pc.PriceChangePercent.Round(1),
+		pc.WeightedAvgPrice, pc.QuoteVolume.Round(1))
 }
 
 type ListPriceChangeStats []PriceChangeStat

@@ -37,6 +37,7 @@ type CandleStickChart struct {
 	CandlePeriod time.Duration             //Represents the candle period (expressed in time.Duration).
 	CandleSticks []environment.CandleStick //Represents the last Candle Sticks used for evaluation of current state.
 	OrderBook    []environment.Order       //Represents the Book of current trades.
+	TrendLine    []float64
 }
 
 type CriticalType int
@@ -61,7 +62,7 @@ type SupportPrice struct {
 }
 
 func (s SupportPrice) String() string {
-	return fmt.Sprintf("%s(%s)", s.Value.Round(2), s.Weight)
+	return fmt.Sprintf("%s(%s)", s.Value, s.Weight)
 }
 
 type CriticalPoint struct {

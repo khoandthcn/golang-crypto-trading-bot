@@ -145,21 +145,19 @@ var Watch5Sec = strategies.IntervalStrategy{
 				return err
 			}
 			logrus.Info("Top Gainers:")
-			for _, pc := range prChange.GetTopGainersByMarket(10, "BUSD") {
+			for _, pc := range prChange.GetTopGainersByMarket(5, "BUSD") {
 				action, err := EvaluateSymbol(wr, pc, "4h")
 				if err != nil {
 					return nil
 				}
-				logrus.Infof("Symbol %s-%s price %s change %s%%", pc.Market.BaseCurrency, pc.Market.MarketCurrency, pc.LastPrice, pc.PriceChangePercent)
 				logrus.Info(action)
 			}
 			logrus.Info("Top Losers:")
-			for _, pc := range prChange.GetTopLosersByMarket(10, "BUSD") {
+			for _, pc := range prChange.GetTopLosersByMarket(5, "BUSD") {
 				action, err := EvaluateSymbol(wr, pc, "4h")
 				if err != nil {
 					return nil
 				}
-				logrus.Infof("Symbol %s-%s price %s change %s%%", pc.Market.BaseCurrency, pc.Market.MarketCurrency, pc.LastPrice, pc.PriceChangePercent)
 				logrus.Info(action)
 			}
 			return nil
@@ -187,6 +185,8 @@ func EvaluateSymbol(wr exchanges.ExchangeWrapper, symbol environment.PriceChange
 		CandleSticks: candle,
 		OrderBook:    nil,
 	}
+	candleChart.ExportPng(fmt.Sprintf("%s%s_candlesticks.png", symbol.Market.BaseCurrency, symbol.Market.MarketCurrency))
+
 	support := candleChart.GetSupportPrices()
 	supRange := support[0].Value.Sub(support[len(support)-1].Value)
 	if supRange.Equal(decimal.Zero) {
@@ -208,6 +208,5 @@ func EvaluateSymbol(wr exchanges.ExchangeWrapper, symbol environment.PriceChange
 			action = "NOTHING"
 		}
 	}
-	return fmt.Sprintf("Market %s-%s: last=%s, Supp=%s\n\tRecommended: %s",
-		symbol.Market.BaseCurrency, symbol.Market.MarketCurrency, symbol.LastPrice, support, action), nil
+	return fmt.Sprintf("Market %s: Supp=%s; Recommended: %s", symbol, support, action), nil
 }
