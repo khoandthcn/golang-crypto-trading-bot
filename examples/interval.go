@@ -86,7 +86,7 @@ var Watch5Sec = strategies.IntervalStrategy{
 					CandleSticks: candle,
 					OrderBook:    nil,
 				}
-				support := candleChart.GetSupportPrices()
+				support := candleChart.GetSupportPrices(0.01)
 				var action string
 				supRange := support[0].Value.Sub(support[len(support)-1].Value)
 				if supRange.Equal(decimal.Zero) {
@@ -187,7 +187,7 @@ func EvaluateSymbol(wr exchanges.ExchangeWrapper, symbol environment.PriceChange
 	}
 	candleChart.ExportPng(fmt.Sprintf("%s%s_candlesticks.png", symbol.Market.BaseCurrency, symbol.Market.MarketCurrency))
 
-	support := candleChart.GetSupportPrices()
+	support := candleChart.GetSupportPrices(0.01)
 	supRange := support[0].Value.Sub(support[len(support)-1].Value)
 	if supRange.Equal(decimal.Zero) {
 		// find one support only

@@ -18,6 +18,7 @@ package plot
 //CandleStick represents a single candle in the graph.
 import (
 	"fmt"
+	"image/color"
 	"math"
 	"sort"
 	"time"
@@ -74,74 +75,75 @@ type CriticalPoint struct {
 func (csc CandleStickChart) GetCriticalPoints() []CriticalPoint {
 	candle := csc.CandleSticks
 	n := len(candle)
-	// 0: average high
-	// d2 = (a3)/3 - (a0)/3
-	a := make([][2]decimal.Decimal, n)
+	m := 2 // 0 for High, 1 for Low
+	w := 3
+	a := make([][]decimal.Decimal, m)
+	for i := 0; i < m; i++ {
+		a[i] = make([]decimal.Decimal, n)
+	}
 	for i := 0; i < n; i++ {
-		i1 := i - 1 // i-2
+		a[0][i] = candle[i].High
+		a[1][i] = candle[i].Low
+	}
+	var criticalPoint, ret []CriticalPoint
+	for i := 0; i < n-1; i++ {
+		i1 := i - w
 		if i1 < 0 {
 			i1 = 0
 		}
-		i2 := i // i+1
+		i2 := i + w
 		if i2 >= n {
 			i2 = n - 1
 		}
+		if candle[i].High.Equal(decimal.Max(a[0][i1], a[0][i1+1:i2]...)) {
+			criticalPoint = append(criticalPoint, CriticalPoint{
+				X:    decimal.NewFromInt(int64(i)),
+				Y:    candle[i].High,
+				Type: MAXIMAL,
+			})
+		}
+		if candle[i].Low.Equal(decimal.Min(a[1][i1], a[1][i1+1:i2]...)) {
+			criticalPoint = append(criticalPoint, CriticalPoint{
+				X:    decimal.NewFromInt(int64(i)),
+				Y:    candle[i].Low,
+				Type: MINIMAL,
+			})
+		}
+	}
+	ret = append(ret, criticalPoint[0])
+	for i := 1; i < len(criticalPoint); i++ {
+		if ret[len(ret)-1].Type != criticalPoint[i].Type {
+			ret = append(ret, criticalPoint[i])
+		} else {
+			if ret[len(ret)-1].Type == MAXIMAL && ret[len(ret)-1].Y.LessThan(criticalPoint[i].Y) {
+				ret = append(ret[0:len(ret)-1], criticalPoint[i])
+			} else if ret[len(ret)-1].Type == MINIMAL && ret[len(ret)-1].Y.GreaterThan(criticalPoint[i].Y) {
+				ret = append(ret[0:len(ret)-1], criticalPoint[i])
+			}
+		}
+	}
 
-		a[i][0] = candle[i2].High.Sub(candle[i1].High)
-		a[i][1] = candle[i2].Low.Sub(candle[i1].Low)
-	}
-	var criticalPoint []CriticalPoint
-	for i := 0; i < n-1; i++ {
-		if a[i][0].IsNegative() && a[i+1][0].IsPositive() {
-			// local maximal
-			criticalPoint = append(criticalPoint, CriticalPoint{
-				X:    decimal.NewFromInt(int64(i)),
-				Y:    candle[i].High,
-				Type: MAXIMAL,
-			})
-		} else if a[i][0].IsPositive() && a[i+1][0].IsNegative() {
-			// local minimal
-			criticalPoint = append(criticalPoint, CriticalPoint{
-				X:    decimal.NewFromInt(int64(i)),
-				Y:    candle[i].High,
-				Type: MINIMAL,
-			})
-		}
-		if a[i][1].IsNegative() && a[i+1][1].IsPositive() {
-			// local maximal
-			criticalPoint = append(criticalPoint, CriticalPoint{
-				X:    decimal.NewFromInt(int64(i)),
-				Y:    candle[i].Low,
-				Type: MAXIMAL,
-			})
-		} else if a[i][1].IsPositive() && a[i+1][1].IsNegative() {
-			// local minimal
-			criticalPoint = append(criticalPoint, CriticalPoint{
-				X:    decimal.NewFromInt(int64(i)),
-				Y:    candle[i].Low,
-				Type: MINIMAL,
-			})
-		}
-	}
-	return criticalPoint
+	return ret
 }
 
-func (csc CandleStickChart) GetSupportPrices() []SupportPrice {
-	threshold := 0.02
-	criticalPoint := csc.GetCriticalPoints()
-	sort.Slice(criticalPoint, func(i, j int) bool {
-		return criticalPoint[i].Y.GreaterThan(criticalPoint[j].Y)
+func (csc CandleStickChart) GetSupportPrices(threshold float64) []SupportPrice {
+	points := []decimal.Decimal{}
+	for _, c := range csc.CandleSticks {
+		points = append(points, c.High, c.Low, c.Close, c.Open)
+	}
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].GreaterThan(points[j])
 	})
 	supportPoint := []SupportPrice{}
-	sum := criticalPoint[0].Y
+	sum := points[0]
 	count := decimal.NewFromInt(1)
-	for i := 1; i < len(criticalPoint); i++ {
-		if sum.Div(count).Sub(criticalPoint[i].Y).Div(sum.Div(count)).LessThanOrEqual(decimal.NewFromFloat(threshold)) {
-			sum = sum.Add(criticalPoint[i].Y)
+	for i := 1; i < len(points); i++ {
+		if sum.Div(count).Sub(points[i]).Div(sum.Div(count)).LessThanOrEqual(decimal.NewFromFloat(threshold)) {
+			sum = sum.Add(points[i])
 			count = count.Add(decimal.NewFromInt(1))
 		} else {
 			supportPoint = append(supportPoint, SupportPrice{Value: sum.Div(count), Weight: count})
-			sum = criticalPoint[i].Y
+			sum = points[i]
 			count = decimal.NewFromInt(1)
 		}
 	}
@@ -165,51 +167,67 @@ func (csc CandleStickChart) GetSupportPrices() []SupportPrice {
 }
 
 func (csc CandleStickChart) ExportPng(fileName string) error {
+	var err error
 	p := pl.New()
 	p.Title.Text = "Candlesticks"
 	p.X.Label.Text = "Time"
 	p.Y.Label.Text = "Price"
-	// p.X.Tick.Marker = pl.TimeTicks{Format: "2006-01-02\n15:04:05"}
-	// p.Add(candleSticks)
+
 	candleSticks, err := NewCandlesticks(csc.CandleSticks)
 	if err != nil {
 		return err
 	}
-
 	p.Add(candleSticks)
 
 	// Draw support/resistance prices
-	support := csc.GetSupportPrices()
+	support := csc.GetSupportPrices(0.01)
 	ticks := []pl.Tick{}
 	for i := 0; i < len(support); i++ {
 		if support[i].Weight.GreaterThanOrEqual(decimal.NewFromInt(3)) {
 			value, _ := support[i].Value.Float64()
-			err = plotutil.AddLines(p, fmt.Sprintf("S(%s)", support[i].Weight), HorizontalLine(len(csc.CandleSticks), value))
+			sline, err := plotter.NewLine(HorizontalLine(len(csc.CandleSticks), value))
 			if err != nil {
-				panic(err)
+				return err
 			}
-			ticks = append(ticks, pl.Tick{Value: value, Label: support[i].Value.Round(2).String()})
+			// var lbl string
+			if support[i].Value.GreaterThan(csc.CurrentPrice) {
+				// lbl = "Resistance price"
+				sline.Color = color.RGBA{R: 82, G: 252, B: 3, A: 255}
+			} else {
+				// lbl = "Support price"
+				sline.Color = color.RGBA{R: 252, G: 3, B: 3, A: 255}
+			}
+			p.Add(sline)
+
+			ticks = append(ticks, pl.Tick{Value: value, Label: fmt.Sprintf("%s(%s)", support[i].Value, support[i].Weight)})
 		}
 	}
-
 	p.Y.Tick.Marker = pl.ConstantTicks(ticks)
 
 	// Draw criticals points
-	// criticals := csc.GetCriticalPoints()
-	// cpts := make(plotter.XYs, len(criticals))
-	// for i, c := range criticals {
-	// 	cpts[i].X, _ = c.X.Float64()
-	// 	cpts[i].Y, _ = c.Y.Float64()
-	// }
-	// plotutil.AddLinePoints(p, cpts)
+	criticals := csc.GetCriticalPoints()
+	cpts := make(plotter.XYs, len(criticals))
+	for i, c := range criticals {
+		// if c.Type == MAXIMAL {
+		cpts[i].X, _ = c.X.Float64()
+		cpts[i].Y, _ = c.Y.Float64()
+		// }
+	}
+	criticalLine, points, err := plotter.NewLinePoints(cpts)
+	if err != nil {
+		return err
+	}
+	criticalLine.Color = color.Black
+	points.Color = color.Black
+	p.Add(criticalLine, points)
 
 	// Draw midle line
-	mpts := make(plotter.XYs, len(csc.CandleSticks))
-	for i := 0; i < len(csc.CandleSticks); i++ {
-		mpts[i].X = float64(i)
-		mpts[i].Y, _ = decimal.Avg(csc.CandleSticks[i].Open, csc.CandleSticks[i].Close).Float64()
-	}
-	plotutil.AddLinePoints(p, mpts)
+	// mpts := make(plotter.XYs, len(csc.CandleSticks))
+	// for i := 0; i < len(csc.CandleSticks); i++ {
+	// 	mpts[i].X = float64(i)
+	// 	mpts[i].Y, _ = decimal.Avg(csc.CandleSticks[i].Open, csc.CandleSticks[i].Close).Float64()
+	// }
+	// plotutil.AddLinePoints(p, mpts)
 
 	plotutil.AddLines(p,
 		"Trend Line", csc.GetTrendLine(),
